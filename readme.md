@@ -1,10 +1,11 @@
 # AppData Cleanup Toolkit
 
-PowerShell scripts that help reclaim disk space by identifying and removing orphaned folders in the `AppData\Local` and `AppData\Roaming` directories. The interactive workflow is safe-by-default and guides you through every deletion, while a legacy automation script remains available for power users.
+PowerShell scripts that help reclaim disk space by removing orphaned AppData folders and purging stale `node_modules` directories across your drives. The interactive AppData workflow is safe-by-default and guides you through every deletion, while legacy and auxiliary automation scripts remain available for power users.
 
 ## 🎯 Highlights
 
 - Scans both AppData roots for folders left behind by uninstalled software
+- Sweeps nested `node_modules` directories across multiple roots with depth limits
 - Cross-references fuzzy matches against installed programs and Windows Store apps
 - Ships with an extensive whitelist to guard system and common vendor folders
 - Provides interactive selection, deletion previews, and detailed logs
@@ -21,6 +22,7 @@ PowerShell scripts that help reclaim disk space by identifying and removing orph
 | Script | Purpose | Best For |
 |--------|---------|----------|
 | `Clean-AppData_interactive.ps1` | Interactive cleanup with menu-driven selection and optional auto-delete mode | Day-to-day manual cleanups |
+| `Clean-NodeModules.ps1` | Recursive `node_modules` cleanup with dry-run logging and ShouldProcess support | Repo hygiene across drives |
 | `Clean-AppData.old.ps1` | Non-interactive (WhatIf/Confirm) cleanup kept for backwards compatibility or automation | Scheduled tasks / power users |
 
 ## 🚀 Quick Start (Interactive Script)
@@ -66,6 +68,44 @@ Use this mode only after validating the results interactively; it removes every 
 - All folders start **selected** for deletion to speed up review.
 - Selections persist until you confirm or quit, enabling batch toggling.
 - The script computes both estimated reclaimed size and the actual delta in free space on drive `C:` to highlight discrepancies caused by other system activity.
+
+## 📁 Node Modules Cleanup Script (`Clean-NodeModules.ps1`)
+
+Use this standalone utility to reclaim space consumed by accumulated `node_modules` folders across multiple repositories.
+
+1. Save `Clean-NodeModules.ps1` alongside your other maintenance scripts.
+2. Run a dry preview from any PowerShell window (no elevation required):
+   ```powershell
+   .\Clean-NodeModules.ps1 -Roots 'D:\Projects','E:\Playground' -DryRun
+   ```
+3. Inspect the summary table and log (`NodeModulesCleanup_yyyyMMdd_HHmmss.log`) created in your user profile or chosen `-LogDirectory`.
+4. Re-run without `-DryRun` (or with `-Confirm:$false`) once you are confident in the candidate list.
+
+### Parameter Reference (`Clean-NodeModules.ps1`)
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `-Roots` | String[] | User profile (Desktop, Documents, Downloads, OneDrive, etc.) | One or more starting points to scan recursively |
+| `-MaxDepth` | Int | `-1` | Limits recursion depth relative to each root (`-1` means unlimited) |
+| `-DryRun` | Switch | `False` | Skips deletion and prints a preview (equivalent to `-WhatIf`) |
+| `-LogDirectory` | String | User profile | Destination for the cleanup log; created automatically |
+
+**Default Behavior (No `-Roots` Specified)**
+
+The script auto-discovers scan locations:
+
+1. **User profile directories:** Desktop, Documents, Downloads, OneDrive, source, repos, Projects, Code, dev, Development, Work, workspace, GitHub, git, Web, wwwroot
+2. **Current working directory** (if not already included)
+3. **Secondary drives (D:–Z:):** Scans the **entire drive root** for comprehensive coverage, plus specific common folders (dev, Projects, Repos, Code, source) for targeted cleanup
+
+This ensures comprehensive coverage across all user directories and secondary drives without requiring manual path entry.
+
+**Tips**
+
+- Override defaults by passing explicit roots: `.\Clean-NodeModules.ps1 -Roots 'D:\','E:\'`
+- The script deduplicates nested `node_modules` candidates so only the highest-level folder in each branch is deleted.
+- Combine `-DryRun` (or `-WhatIf`) with `-MaxDepth` to preview before deletion.
+- Use `-MaxDepth 1` to target only top-level dependencies (e.g., monorepo roots).
 
 ## 🛡️ Safety Features
 
